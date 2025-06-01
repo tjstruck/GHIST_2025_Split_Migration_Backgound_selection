@@ -13,6 +13,7 @@ requirements:
         #!/usr/bin/env python
         import argparse
         import json
+        import yaml
         parser = argparse.ArgumentParser()
         parser.add_argument("-r", "--results", required=True, help="validation results")
         parser.add_argument("-e", "--entity_type", required=True, help="synapse entity type downloaded")
@@ -24,12 +25,33 @@ requirements:
             prediction_file_status = "INVALID"
             invalid_reasons = ['Expected FileEntity type but found ' + args.entity_type]
         else:
-            with open(args.submission_file,"r") as sub_file:
-                message = sub_file.read()
             invalid_reasons = []
             prediction_file_status = "VALIDATED"
-            if not message.startswith("test"):
-                invalid_reasons.append("Submission must have test column")
+
+            try:
+                open(args.submission_file, "r")
+            except FileNotFoundError:
+                invalid_reasons = ["File could not be opened"]
+
+            if invalid_reasons == []:
+
+              exc = 'No error'
+              with open(args.submission_file) as stream:
+                  try:
+                      fi = yaml.safe_load(stream)
+                  except yaml.YAMLError as exc:
+                      invalid_reasons = [exc]
+
+            if invalid_reasons == []:
+                try:
+                    fi['parameters']['AFR_population_size']
+                    fi['parameters']['EUR_population_size']
+                    fi['parameters']['generations_since_split']
+                    fi['parameters']['migration_rate']
+                except KeyError:
+                    invalid_reasons = ['Could not find one or more parameters, which are required for scoring']
+
+            if invalid_reasons != []:
                 prediction_file_status = "INVALID"
         result = {'submission_errors': "\n".join(invalid_reasons),
                   'submission_status': prediction_file_status}
@@ -72,4 +94,4 @@ arguments:
 
 hints:
   DockerRequirement:
-    dockerPull: python:3.9.1-slim-buster
+    dockerPull: tjstruck/popsim-pilot-slim:1.32

@@ -19,10 +19,36 @@ requirements:
         parser.add_argument("-g", "--goldstandard", required=True, help="Goldstandard for scoring")
 
         args = parser.parse_args()
-        score = 1 + 1
+
+        import yaml
+        import numpy as np
+        def relative_root_mean_squared_error(true, pred):
+            n = len(true) # update
+            squared_error = np.square((true - pred) / true)
+            rrmse = np.sqrt(np.sum(squared_error))
+            return rrmse
+
+        exc = 'No error'
+        with open(args.submissionfile) as stream:
+            try:
+                submission = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                print(exc)
+
+
+        exc = 'No error'
+        with open(args.goldstandard) as stream:
+            try:
+                goldstandard = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                print(exc)
+
+        keys = list(goldstandard['parameters'].keys())
+        keys.sort()
+        RRMSE = relative_root_mean_squared_error(np.array([goldstandard['parameters'][key] for key in keys]), np.array([submission['parameters'][key] for key in keys]))
         prediction_file_status = "SCORED"
 
-        result = {'auc': score,
+        result = {'rrmse': RRMSE,
                   'submission_status': prediction_file_status}
         with open(args.results, 'w') as o:
           o.write(json.dumps(result))
@@ -59,4 +85,4 @@ arguments:
 
 hints:
   DockerRequirement:
-    dockerPull: python:3.9.1-slim-buster
+    dockerPull: tjstruck/popsim-pilot-slim:1.32
